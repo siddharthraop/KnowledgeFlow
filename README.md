@@ -12,7 +12,7 @@ relationship tables, keys, content references, links, and subject
 classifications. Every step of every answer is checked against its source
 before anyone sees it.
 
-**[Read the design document](https://raosiddharthp.github.io/KnowledgeFlow/)**
+**[Read the design document](https://siddharthraop.github.io/KnowledgeFlow/)**
 
 ## Status
 
@@ -150,7 +150,7 @@ The design document is a single HTML page with no build step.
 1.  Clone the repository:
 
     ```sh
-    git clone https://github.com/raosiddharthp/KnowledgeFlow.git
+    git clone https://github.com/siddharthraop/KnowledgeFlow.git
     cd KnowledgeFlow
     ```
 
@@ -199,9 +199,9 @@ the readers are fictional.
 This project is the third in a series of design documents. Each one solves one
 economic problem in documentation, and each builds on the same sample content.
 
-1.  [MANIFEST](https://raosiddharthp.github.io/Manifest/): migrate DITA XML to
+1.  [MANIFEST](https://siddharthraop.github.io/Manifest/): migrate DITA XML to
     docs as code and prove that no content was lost.
-1.  [The Autonomous Author](https://raosiddharthp.github.io/The-Autonomous-Author/):
+1.  [The Autonomous Author](https://siddharthraop.github.io/The-Autonomous-Author/):
     run the docs loop at the pace of the code loop, with a first draft on every
     merge.
 1.  **KnowledgeFlow**: answer questions across documentation silos, from the
@@ -214,7 +214,7 @@ gets the same knowledge graph from DITA structure, on free tiers.
 ## Contact
 
 Siddharth Rao. To ask a question or suggest a change,
-[open an issue](https://github.com/raosiddharthp/KnowledgeFlow/issues).
+[open an issue](https://github.com/siddharthraop/KnowledgeFlow/issues).
 
 ## License
 
