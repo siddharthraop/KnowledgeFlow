@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "knowledgeflow"
+version = "0.1.0"
+description = "Answer questions across documentation sets from the links writers already maintain."
+license = {text = "MIT"}
+requires-python = ">=3.11"
+dependencies = ["lxml>=5", "networkx>=3"]
+
+[project.optional-dependencies]
+api = ["fastapi>=0.115", "uvicorn>=0.30", "google-genai>=1.0", "google-cloud-firestore>=2.16"]
+test = ["pytest>=8", "httpx>=0.27"]
+
+[tool.setuptools]
+packages = ["kf", "api"]

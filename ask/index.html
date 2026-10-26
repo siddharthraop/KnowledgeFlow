@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KnowledgeFlow Ask</title>
+<meta name="description" content="Ask a question that crosses documentation sets. Every step of the answer cites a topic and the authored link that reached it.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ask.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-in">
+    <a class="brand" href="../">KnowledgeFlow</a>
+    <nav><a href="../">Design document</a><a href="https://github.com/siddharthraop/KnowledgeFlow">Source</a></nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="intro">
+    <h1>Ask across documentation sets</h1>
+    <p>The sample corpus has two sets that never link to each other: <b class="set tpu">Cloud TPU</b> in DITA and
+      <b class="set nat">Cloud NAT</b> in MyST. KnowledgeFlow joins them through the links, reuse and subjects that
+      writers already authored. Every step of an answer cites a topic and the edge that reached it. Plain checks
+      drop any step whose quote, command, flag or value isn't in its source, and record a gap.</p>
+  </section>
+
+  <form id="ask" class="ask" autocomplete="off">
+    <label for="q" class="sr">Your question</label>
+    <textarea id="q" rows="2" maxlength="500" placeholder="Ask a question about Cloud TPU or Cloud NAT"></textarea>
+    <button id="go" type="submit">Ask</button>
+  </form>
+  <div class="samples" id="samples" aria-label="Sample questions"></div>
+
+  <div id="status" class="status" role="status" aria-live="polite"></div>
+
+  <section id="result" class="result" hidden>
+    <p id="summary" class="summary"></p>
+    <ol id="steps" class="steps"></ol>
+    <div id="notcovered" class="note" hidden></div>
+    <div id="dropped" class="dropped" hidden></div>
+
+    <div class="cols">
+      <section class="panel">
+        <h2>Cited path</h2>
+        <p class="hint">Topics in reading order and the authored edges that joined them. Click an edge to open the
+          line it was read from.</p>
+        <div id="graph" class="graph"></div>
+      </section>
+      <section class="panel">
+        <h2>Gaps from this answer</h2>
+        <div id="gaps"></div>
+      </section>
+    </div>
+    <p id="meta" class="meta"></p>
+  </section>
+
+  <section class="panel all-gaps">
+    <h2>Recorded gaps</h2>
+    <p class="hint">Gaps that questions have found so far: cross-set joins with no link a reader could follow, and
+      steps the checks dropped. Each would become an issue for the writers who own the topic.</p>
+    <button id="loadgaps" type="button" class="ghost">Show recorded gaps</button>
+    <div id="allgaps"></div>
+  </section>
+</main>
+
+<footer class="wrap foot">
+  <p>Sample content adapted from the Google Cloud <a href="https://docs.cloud.google.com/tpu/docs">Cloud TPU</a> and
+    <a href="https://docs.cloud.google.com/nat/docs/overview">Cloud NAT</a> documentation under
+    <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>, and modified. A portfolio project by
+    Siddharth Rao; not affiliated with or endorsed by Google. Questions are sent to the Gemini API free tier; don't
+    ask anything private.</p>
+</footer>
+<script src="config.js"></script>
+<script src="ask.js"></script>
+</body>
+</html>

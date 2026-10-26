@@ -1,0 +1,72 @@
+# Build the API image, prove it answers the sample question, push it, deploy it to Cloud Run, ask it live.
+name: deploy-api
+on:
+  push:
+    branches: [main]
+    paths: ["kf/**", "api/**", "corpus", "Dockerfile", "pyproject.toml", ".github/workflows/deploy-api.yml"]
+  workflow_dispatch:
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+permissions:
+  contents: read
+  id-token: write   # Workload Identity Federation to Google Cloud
+env:
+  REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+  SERVICE: knowledgeflow-api
+  QUESTION: "My TPU VM has no external IP address. How does it reach a package index on the internet?"
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: {submodules: true}
+      - name: Build
+        run: docker build --build-arg CORPUS_COMMIT="$(git -C corpus rev-parse HEAD)" -t kf-api:ci .
+      - name: Smoke test the container (no model key, extractive answer)
+        run: |
+          docker run -d --name api -p 8080:8080 kf-api:ci
+          for i in $(seq 1 30); do curl -sf localhost:8080/api/health >/dev/null && break; sleep 1; done
+          curl -sf -X POST localhost:8080/api/ask -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg q "$QUESTION" '{question:$q}')" > smoke.json
+          jq -e '[.steps[].topic.set] | unique == ["nat","tpu"]' smoke.json
+          jq -r '.steps[] | "\(.n). [\(.topic.id) via \(.reached.type)] \(.text)"' smoke.json
+          echo "Image size: $(docker image inspect kf-api:ci --format '{{.Size}}' | awk '{printf "%.0f MB", $1/1e6}')"
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT }}
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Push
+        id: push
+        run: |
+          IMAGE="$REGION-docker.pkg.dev/${{ vars.GCP_PROJECT }}/tw-images/knowledgeflow-api:${GITHUB_SHA::12}"
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker tag kf-api:ci "$IMAGE" && docker push -q "$IMAGE"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+      - name: Deploy (0 to 1 instance, request-based billing)
+        run: |
+          gcloud run deploy "$SERVICE" --project="${{ vars.GCP_PROJECT }}" --region="$REGION" \
+            --image="${{ steps.push.outputs.image }}" \
+            --service-account="${{ vars.GCP_RUNTIME_SA }}" \
+            --min-instances=0 --max-instances=1 --cpu-throttling --concurrency=8 --timeout=120 \
+            --cpu=1 --memory=512Mi --port=8080 \
+            --set-secrets="GOOGLE_API_KEY=gemini-api-key:latest" \
+            --set-env-vars="KF_MODEL=gemini-3.8-flash,KF_FIRESTORE=1,GOOGLE_CLOUD_PROJECT=${{ vars.GCP_PROJECT }}" \
+            --labels="project=knowledgeflow,managed-by=deploy-api" --quiet
+      - name: Ask the live API
+        run: |
+          URL=$(gcloud run services describe "$SERVICE" --project="${{ vars.GCP_PROJECT }}" --region="$REGION" --format='value(status.url)')
+          echo "::notice title=Service URL::$URL"
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/health")
+          if [ "$code" = "403" ]; then
+            echo "::error title=Not public yet::Run once: gcloud run services add-iam-policy-binding $SERVICE --region=$REGION --member=allUsers --role=roles/run.invoker --project=${{ vars.GCP_PROJECT }}"
+            exit 0
+          fi
+          curl -s "$URL/api/health" | jq -c '{model, gaps_store, topics: .graph.topics, edges: .graph.edges}'
+          curl -s -m 110 -X POST "$URL/api/ask" -H 'Content-Type: application/json' -H 'Origin: https://siddharthraop.github.io' \
+            -d "$(jq -n --arg q "$QUESTION" '{question:$q}')" > live.json
+          jq -c '{model, summary, dropped: (.dropped|length), gaps: [.gaps[].kind], ms}' live.json
+          jq -r '.steps[] | "\(.n). [\(.topic.id) via \(.reached.type), revisions \(.revisions)] \(.text)"' live.json
+          jq -e '[.steps[].topic.set] | unique == ["nat","tpu"]' live.json

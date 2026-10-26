@@ -1,0 +1,19 @@
+name: tests
+on:
+  push:
+    branches: [main]
+    paths: ["kf/**", "api/**", "tests/**", "pyproject.toml", "corpus", ".github/workflows/tests.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: {submodules: true}
+      - uses: actions/setup-python@v6
+        with: {python-version: "3.12"}
+      - run: pip install -q -e '.[api,test]'
+      - run: python -m kf.graph
+      - run: python -m pytest -q tests

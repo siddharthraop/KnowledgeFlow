@@ -16,9 +16,46 @@ before anyone sees it.
 
 ## Status
 
-Design document, version 0.1 (October 2026). This repository contains the
-design for a minimum viable product (MVP). The agent isn't built yet. The
-simulator in the design document is a scripted demo and doesn't call a model.
+Version 0.1.0 (26 October 2026). The answer path is built and live:
+
+- **Ask page:** https://siddharthraop.github.io/KnowledgeFlow/ask/ (no sign-in)
+- **API:** Cloud Run service `knowledgeflow-api`, 0 to 1 instances
+
+Ask a question that crosses documentation sets. The answer lists steps, and each step cites a topic, the section,
+an exact quote and the authored edge that reached the topic, with the file and line that edge was read from. Plain
+Python checks drop a step whose quote, command, flag or value isn't in its source (after up to two revisions), and
+record a gap. A join between sets that only a shared subject makes is recorded as a missing-link gap.
+
+### How it works
+
+| Part | File | What it does |
+| ---- | ---- | ------------ |
+| Graph build | `kf/graph.py` | Reads the corpus TPU set (DITA) and NAT set (MyST): `contains`, `related`, `reuses`, `states`, `links-to`, `about`. Each edge keeps its file and line. |
+| Entry and path | `kf/search.py` | SQLite FTS5 BM25 finds entry topics; a weighted walk over authored edges joins them, preferring writer-drawn links over shared subjects. |
+| Composer | `kf/model.py` | Gemini (`gemini-3.8-flash`) writes JSON steps. Without a key, an extractive composer quotes the best sentence from each topic. |
+| Checks | `kf/checks.py` | Topic on the path, quote in the source word for word, every command, flag, field and number in the source. |
+| Answer | `kf/answer.py` | Compose, check, revise up to 2 times, drop, record gaps. |
+| Gaps | `kf/gaps.py` | Firestore collection `knowledgeflow_gaps`, one record per gap with a count. |
+| API and page | `api/main.py`, `ask/` | FastAPI on Cloud Run; static page on GitHub Pages. |
+
+The corpus is the [dita-corpus](https://github.com/siddharthraop/dita-corpus) repository, included as the `corpus`
+submodule. Five sample questions with expected paths (`tests/samples.json`) are the tests and the live check.
+
+### Run locally
+
+```sh
+git clone --recurse-submodules https://github.com/siddharthraop/KnowledgeFlow.git
+cd KnowledgeFlow
+pip install -e '.[api,test]'
+python -m pytest -q tests
+uvicorn api.main:app --port 8080            # set GOOGLE_API_KEY to use Gemini
+python3 -m http.server 8000                  # then open http://localhost:8000/ask/?api=http://localhost:8080
+```
+
+### Not in version 0.1
+
+Model-proposed `mentions` edges as pull requests, embeddings, a BigQuery question log, dashboards, and gap issues
+opened on GitHub (gaps are recorded in Firestore). The graph is in memory, which suits the sample sets.
 
 ## The problem
 
@@ -169,6 +206,12 @@ You can also open `index.html` directly in a browser.
 | File | Description |
 | ---- | ----------- |
 | `index.html` | The design document, published with GitHub Pages |
+| `ask/` | The Ask page |
+| `kf/` | Graph build, search, composer, checks and gaps |
+| `api/` | The API on Cloud Run |
+| `corpus/` | The sample documentation sets (submodule) |
+| `tests/` | Sample questions and tests |
+| `.github/workflows/` | Tests, API deploy, Pages, live check |
 | `README.md` | This file |
 | `LICENSE` | MIT License |
 | `.gitignore` | Files that Git ignores |

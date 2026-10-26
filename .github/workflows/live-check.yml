@@ -1,0 +1,33 @@
+# Check the live Ask page the way a visitor uses it: the page loads, CORS allows it, and every sample answers.
+name: live-check
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [deploy-api, pages]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Page, API and samples
+        env:
+          PAGE: https://siddharthraop.github.io/KnowledgeFlow/ask/
+          API: https://knowledgeflow-api-622389218685.us-central1.run.app
+        run: |
+          sleep 45
+          t=$(curl -s "$PAGE" | grep -o '<title>[^<]*' | head -1)
+          echo "::notice title=Page::$PAGE -> ${t#<title>}"
+          echo "::notice title=CORS::$(curl -s -D - -o /dev/null -H 'Origin: https://siddharthraop.github.io' "$API/api/health" | grep -i '^access-control-allow-origin' | tr -d '\r')"
+          echo "::notice title=Health::$(curl -s -m 60 "$API/api/health" | jq -c '{model, gaps_store}')"
+          jq -c '.[]' tests/samples.json | while read -r s; do
+            id=$(jq -r .id <<<"$s"); q=$(jq -r .question <<<"$s")
+            curl -s -m 110 -X POST "$API/api/ask" -H 'Content-Type: application/json' -H 'Origin: https://siddharthraop.github.io' \
+              -d "$(jq -n --arg q "$q" '{question:$q}')" > "$id.json"
+            ok=$(jq --argjson s "$s" '([$s.path[] as $t | (.path.topics | index($t)) != null] | all) and ((.steps|length) > 0)' "$id.json")
+            line=$(jq -r '"\(.model.name) \(.model.id) · steps \(.steps|length) · dropped \(.dropped|length) · gaps \([.gaps[].kind]|join(",")) · \(.ms) ms · error \(.model.error)"' "$id.json")
+            if [ "$ok" = "true" ]; then echo "::notice title=$id::$line"; else echo "::error title=$id::$line"; fi
+            sleep 6
+          done
